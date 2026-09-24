@@ -9,6 +9,7 @@ from app.db import Base, engine
 from app.routers import lecturers
 from app.storage import ensure_container_exists
 
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,6 +77,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+Instrumentator().instrument(app).expose(app, include_in_schema=False)
 
 
 app.include_router(lecturers.router)

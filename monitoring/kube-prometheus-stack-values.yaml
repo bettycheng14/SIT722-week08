@@ -1,0 +1,12 @@
+prometheus:
+  prometheusSpec:
+    # Discover PodMonitors in any namespace
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 2d
+
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard

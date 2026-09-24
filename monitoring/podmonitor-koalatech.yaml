@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: koalatech-services
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - staging
+      - production
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - user-service
+          - student-service
+          - lecturer-service
+          - course-service
+          - enrollment-service
+  podTargetLabels:
+    - app
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
