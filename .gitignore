@@ -197,3 +197,9 @@ cython_debug/
 .cursorindexingignore
 
 node_modules/
+
+# terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/tfplan
