@@ -58,6 +58,18 @@ jobs:
         run: |
           kubectl apply -f monitoring/podmonitor-koalatech.yaml
 
+      - name: Apply Grafana dashboards
+        run: |
+          for file in monitoring/dashboards/*.json; do
+            name="grafana-dashboard-$(basename "$file" .json)"
+            kubectl create configmap "$name" \
+              --namespace monitoring \
+              --from-file="$(basename "$file")=$file" \
+              --dry-run=client -o yaml \
+            | kubectl label --local -f - grafana_dashboard=1 -o yaml \
+            | kubectl apply -f -
+          done
+
       - name: Validate Grafana and Prometheus are running
         run: |
           kubectl rollout status deployment/prometheus-grafana -n monitoring --timeout=300s
