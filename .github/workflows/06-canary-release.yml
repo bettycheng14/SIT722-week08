@@ -1,0 +1,117 @@
+name: 06 - Canary Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag (git SHA) to deploy as the v2 canary"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  canary-release:
+    name: Canary release of enrollment-service v2
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    steps:
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+            --name ${{ vars.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
+
+      - name: Deploy candidate image as v2 canary
+        run: |
+          kubectl set image deployment/enrollment-service-v2 \
+            enrollment-service=${{ vars.ACR_LOGIN_SERVER }}/koalatech-enrollment-service:${{ inputs.image_tag }} \
+            -n production
+
+          kubectl scale deployment/enrollment-service-v1 --replicas=5 -n production
+          kubectl scale deployment/enrollment-service-v2 --replicas=1 -n production
+
+          kubectl rollout status deployment/enrollment-service-v2 -n production --timeout=300s
+          kubectl get pods -n production -l app=enrollment-service
+
+      - name: Observe canary error rate
+        id: observe
+        run: |
+          QUERY=$(cat <<'KQL'
+          ContainerLogV2
+          | where TimeGenerated > ago(15m)
+          | where PodNamespace == "production"
+          | where PodName startswith "enrollment-service-v2-"
+          | where LogMessage matches regex @'"[A-Z]+ \S+ HTTP/\d\.\d" \d{3}'
+          | extend Path = extract(@'"[A-Z]+ (\S+) HTTP/\d\.\d" \d{3}', 1, LogMessage)
+          | where Path !startswith "/metrics"
+          | extend StatusCode = toint(extract(@'"[A-Z]+ \S+ HTTP/\d\.\d" (\d{3})', 1, LogMessage))
+          | summarize TotalRequests = count(), ErrorRequests = countif(StatusCode >= 400)
+          | where TotalRequests >= 15
+          | extend ErrorRatePercent = round(100.0 * ErrorRequests / TotalRequests, 2)
+          KQL
+          )
+
+          MAX_ATTEMPTS=20
+          SLEEP_SECONDS=30
+          THRESHOLD=20
+          ERROR_RATE=""
+
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            echo "Attempt $i/$MAX_ATTEMPTS: querying Log Analytics"
+
+            RESULT=$(az monitor log-analytics query \
+              --workspace "${{ vars.LOG_ANALYTICS_WORKSPACE_ID }}" \
+              --analytics-query "$QUERY" \
+              --output json)
+
+            if [ "$(echo "$RESULT" | jq 'length')" -gt 0 ]; then
+              TOTAL=$(echo "$RESULT" | jq -r '.[0].TotalRequests')
+              ERROR_RATE=$(echo "$RESULT" | jq -r '.[0].ErrorRatePercent')
+              echo "Sample reached: $TOTAL requests, error rate ${ERROR_RATE}%"
+              break
+            fi
+
+            echo "Fewer than 15 canary requests so far, waiting ${SLEEP_SECONDS}s"
+            sleep "$SLEEP_SECONDS"
+          done
+
+          if [ -z "$ERROR_RATE" ]; then
+            echo "Sample-size guard never satisfied; failing safe."
+            echo "decision=rollback" >> "$GITHUB_OUTPUT"
+          elif awk -v r="$ERROR_RATE" -v t="$THRESHOLD" 'BEGIN { exit !(r > t) }'; then
+            echo "Error rate ${ERROR_RATE}% is above ${THRESHOLD}%: rolling back."
+            echo "decision=rollback" >> "$GITHUB_OUTPUT"
+          else
+            echo "Error rate ${ERROR_RATE}% is within ${THRESHOLD}%: promoting."
+            echo "decision=promote" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Promote v2
+        if: steps.observe.outputs.decision == 'promote'
+        run: |
+          kubectl scale deployment/enrollment-service-v2 --replicas=6 -n production
+          kubectl scale deployment/enrollment-service-v1 --replicas=0 -n production
+          kubectl rollout status deployment/enrollment-service-v2 -n production --timeout=300s
+          kubectl get deploy -n production | grep enrollment-service
+
+      - name: Roll back v2
+        if: steps.observe.outputs.decision == 'rollback'
+        run: |
+          kubectl scale deployment/enrollment-service-v2 --replicas=0 -n production
+          kubectl scale deployment/enrollment-service-v1 --replicas=6 -n production
+          kubectl rollout status deployment/enrollment-service-v1 -n production --timeout=300s
+          kubectl get deploy -n production | grep enrollment-service
