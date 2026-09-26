@@ -11,7 +11,7 @@ variable "aks_cluster_name" {
 }
 
 variable "github_repository" {
-  description = "GitHub owner/repo allowed to federate for the canary workflow"
+  description = "GitHub repository in the token's immutable subject format (owner@id/repo@id) allowed to federate for the canary workflow"
   type        = string
-  default     = "bettycheng14/SIT722-week08"
+  default     = "bettycheng14@104011087/SIT722-week08@1354336005"
 }
