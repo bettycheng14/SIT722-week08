@@ -203,3 +203,7 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/tfplan
+terraform/oidc/.terraform/
+terraform/oidc/*.tfstate
+terraform/oidc/*.tfstate.*
+terraform/oidc/tfplan

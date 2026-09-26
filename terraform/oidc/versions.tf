@@ -3,7 +3,7 @@ terraform {
 
   backend "azurerm" {
     container_name = "tfstate"
-    key            = "koalatech.tfstate"
+    key            = "koalatech-oidc.tfstate"
   }
 
   required_providers {
@@ -11,9 +11,9 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.0"
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
     }
   }
 }
@@ -21,3 +21,5 @@ terraform {
 provider "azurerm" {
   features {}
 }
+
+provider "azuread" {}
