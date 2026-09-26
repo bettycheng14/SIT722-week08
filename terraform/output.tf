@@ -55,3 +55,8 @@ output "acr_login_command" {
   description = "Azure CLI command used to log in to ACR"
   value       = "az acr login --name ${azurerm_container_registry.acr.name}"
 }
+
+output "log_analytics_workspace_id" {
+  description = "Log Analytics workspace ID (GUID) used for KQL queries"
+  value       = azurerm_log_analytics_workspace.canary.workspace_id
+}
