@@ -55,10 +55,11 @@ jobs:
           | where TimeGenerated > ago(15m)
           | where PodNamespace == "production"
           | where PodName startswith "enrollment-service-v2-"
-          | where LogMessage matches regex @'"[A-Z]+ \S+ HTTP/\d\.\d" \d{3}'
-          | extend Path = extract(@'"[A-Z]+ (\S+) HTTP/\d\.\d" \d{3}', 1, LogMessage)
+          | extend Msg = tostring(LogMessage)
+          | where Msg matches regex @'"[A-Z]+ \S+ HTTP/\d\.\d" \d{3}'
+          | extend Path = extract(@'"[A-Z]+ (\S+) HTTP/\d\.\d" \d{3}', 1, Msg)
           | where Path !startswith "/metrics"
-          | extend StatusCode = toint(extract(@'"[A-Z]+ \S+ HTTP/\d\.\d" (\d{3})', 1, LogMessage))
+          | extend StatusCode = toint(extract(@'"[A-Z]+ \S+ HTTP/\d\.\d" (\d{3})', 1, Msg))
           | summarize TotalRequests = count(), ErrorRequests = countif(StatusCode >= 400)
           | where TotalRequests >= 15
           | extend ErrorRatePercent = round(100.0 * ErrorRequests / TotalRequests, 2)
