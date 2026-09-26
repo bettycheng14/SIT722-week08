@@ -1,6 +1,6 @@
 output "canary_workflow_client_id" {
-  description = "Client ID of the GitHub Actions canary app registration"
-  value       = azuread_application.canary_gha.client_id
+  description = "Client ID of the managed identity used by the canary workflow"
+  value       = azurerm_user_assigned_identity.canary_gha.client_id
 }
 
 output "canary_workflow_tenant_id" {
