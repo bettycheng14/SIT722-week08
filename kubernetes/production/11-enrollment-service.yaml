@@ -1,17 +1,75 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: enrollment-service
+  name: enrollment-service-v1
   namespace: production
+  labels:
+    app: enrollment-service
+    version: v1
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: enrollment-service
+      version: v1
   template:
     metadata:
       labels:
         app: enrollment-service
+        version: v1
+    spec:
+      containers:
+        - name: enrollment-service
+          image: placeholder
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: application-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: application-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              value: enrollments
+            - name: POSTGRES_HOST
+              value: enrollment-db
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: application-secret
+                  key: JWT_SECRET_KEY
+            - name: JWT_ALGORITHM
+              value: HS256
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enrollment-service-v2
+  namespace: production
+  labels:
+    app: enrollment-service
+    version: v2
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: enrollment-service
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: enrollment-service
+        version: v2
     spec:
       containers:
         - name: enrollment-service
