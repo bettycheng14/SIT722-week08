@@ -1,6 +1,11 @@
 terraform {
   required_version = ">= 1.7.0"
 
+  backend "azurerm" {
+    container_name = "tfstate"
+    key            = "koalatech.tfstate"
+  }
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
