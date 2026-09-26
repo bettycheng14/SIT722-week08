@@ -2,7 +2,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from sqlalchemy.exc import OperationalError
 
 from app.db import Base, engine
@@ -82,7 +82,4 @@ def root() -> dict[str, str]:
 
 @app.get("/health", tags=["Health"])
 def health_check() -> dict[str, str]:
-    return {
-        "status": "healthy",
-        "service": "enrollment-service",
-    }
+    raise HTTPException(status_code=500, detail="Simulated failure for canary demo.")
